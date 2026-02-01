@@ -1,0 +1,5 @@
+.DS_Store
+.claude/
+_mapping.json
+batch_*.json
+trans_*.json
