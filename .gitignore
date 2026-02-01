@@ -1,5 +1,5 @@
 .DS_Store
-.claude/
+.claude/settings.local.json
 _mapping.json
 batch_*.json
 trans_*.json
