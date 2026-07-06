@@ -27,7 +27,7 @@ vtts/
 /translate-vtt subtitles/filename.en.vtt
 ```
 
-이 명령어가 전체 파이프라인(추출 → 번역 → 재구성 → 정리)을 자동 실행합니다.
+이 명령어가 전체 파이프라인(추출 → 번역 → 재구성 → 비교 HTML → 정리)을 자동 실행합니다.
 
 ### 수동 실행
 
@@ -50,13 +50,29 @@ python3 translate-vtt.py reconstruct "subtitles/video.en.vtt" [output.ko.vtt]
 번역된 `trans_N.json` 파일들을 병합하여 한국어 VTT를 생성합니다.
 출력 파일명 미지정 시 `.en.vtt` → `.ko.vtt`로 자동 변환.
 
-#### 3. Cleanup - 임시 파일 제거
+#### 3. Compare - 원문/번역 비교 HTML 생성
+
+```bash
+python3 translate-vtt.py compare "subtitles/video.en.vtt" [translated.ko.vtt] [--output out.html]
+```
+
+원문(EN)과 번역(KO) VTT를 파싱하여 각 대사를 나란히 보여주는 단일 HTML을 생성합니다.
+YouTube 롤링 자막의 중복은 자동으로 제거되고, 각 대사의 최초 등장 시각이 함께 표시됩니다.
+
+- 외부 의존성 없는 자체 완결형 HTML (오프라인 열람 가능)
+- 원문·번역 실시간 검색 필터
+- 라이트/다크 테마 자동 대응, 모바일 반응형
+- 번역 대상 VTT 미지정 시 `.en.vtt` → `.ko.vtt`로 자동 탐색
+- 출력 미지정 시 `<name>.ko.compare.html`로 저장
+
+#### 4. Cleanup - 임시 파일 제거
 
 ```bash
 python3 translate-vtt.py cleanup [directory]
 ```
 
 `batch_*.json`, `trans_*.json`, `_mapping.json`을 삭제합니다.
+(`.ko.vtt`, `.compare.html` 산출물은 유지됩니다.)
 
 ## Translation Guidelines
 
