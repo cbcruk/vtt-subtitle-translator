@@ -63,11 +63,25 @@ Check:
 - Language header is `ko`
 - Spot-check first and last few cues
 
-## Step 5: Cleanup
+## Step 5: Comparison HTML
+
+Generate a self-contained, searchable side-by-side EN/KO comparison:
+
+```bash
+python3 translate-vtt.py compare "$ARGUMENTS"
+```
+
+Output: `<name>.ko.compare.html` next to the VTT files. Report the path to
+the user so they can review the translation quality in a browser.
+
+## Step 6: Cleanup
 
 ```bash
 python3 translate-vtt.py cleanup subtitles
 ```
+
+Cleanup only removes intermediate JSON files; the `.ko.vtt` and
+`.compare.html` deliverables are kept.
 
 ## Error Recovery
 

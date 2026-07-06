@@ -4,10 +4,12 @@
 Usage:
     python3 translate-vtt.py extract <input.vtt> [--batch-size 200]
     python3 translate-vtt.py reconstruct <input.vtt> [<output.vtt>]
+    python3 translate-vtt.py compare <input.en.vtt> [<translated.ko.vtt>] [--output <file.html>]
     python3 translate-vtt.py cleanup
 """
 
 import argparse
+import html
 import json
 import math
 import re
@@ -236,6 +238,212 @@ def cmd_reconstruct(args: argparse.Namespace) -> None:
     print(f"Language header: ko")
 
 
+def build_comparison_pairs(
+    en_cues: list[CueData], ko_cues: list[CueData]
+) -> list[tuple[str, str, str]]:
+    """Pair each unique English line with its Korean translation.
+
+    The YouTube rolling-caption format repeats each line across two cues, so we
+    dedupe by English text and keep the timestamp of its first appearance.
+    """
+    pairs: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for en_cue, ko_cue in zip(en_cues, ko_cues):
+        start = en_cue.timestamp.split(" ")[0]
+        line_pairs = [
+            (en_cue.line1_text, ko_cue.line1_text),
+            (en_cue.line2_text, ko_cue.line2_text),
+        ]
+        for en_text, ko_text in line_pairs:
+            clean = en_text.strip()
+            if clean and clean not in seen:
+                seen.add(clean)
+                pairs.append((start, clean, ko_text.strip()))
+    return pairs
+
+
+def render_comparison_html(
+    en_name: str,
+    ko_name: str,
+    pairs: list[tuple[str, str, str]],
+) -> str:
+    rows = []
+    for idx, (timestamp, en_text, ko_text) in enumerate(pairs, start=1):
+        rows.append(
+            "<tr>"
+            f'<td class="num">{idx}</td>'
+            f'<td class="ts">{html.escape(timestamp)}</td>'
+            f'<td class="en" lang="en">{html.escape(en_text)}</td>'
+            f'<td class="ko" lang="ko">{html.escape(ko_text)}</td>'
+            "</tr>"
+        )
+    rows_html = "\n".join(rows)
+    title = html.escape(ko_name)
+    en_label = html.escape(en_name)
+    ko_label = html.escape(ko_name)
+    count = len(pairs)
+
+    return f"""<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} — 번역 비교</title>
+<style>
+  :root {{
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #6b7280;
+    --border: #e5e7eb; --row: #f9fafb; --accent: #2563eb;
+    --ts: #7c3aed; --head-bg: #f3f4f6;
+  }}
+  @media (prefers-color-scheme: dark) {{
+    :root {{
+      --bg: #0f1115; --fg: #e6e6e6; --muted: #9ca3af;
+      --border: #262a33; --row: #171a21; --accent: #60a5fa;
+      --ts: #c4b5fd; --head-bg: #1b1f27;
+    }}
+  }}
+  * {{ box-sizing: border-box; }}
+  body {{
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    line-height: 1.55;
+  }}
+  header {{
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    border-bottom: 1px solid var(--border); padding: 16px 20px;
+  }}
+  h1 {{ font-size: 1.1rem; margin: 0 0 4px; }}
+  .meta {{ font-size: 0.8rem; color: var(--muted); }}
+  .meta code {{ color: var(--fg); }}
+  .controls {{ margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }}
+  #search {{
+    flex: 1 1 240px; min-width: 0; padding: 8px 12px; font-size: 0.9rem;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--fg);
+  }}
+  #count {{ font-size: 0.8rem; color: var(--muted); white-space: nowrap; }}
+  .wrap {{ padding: 0 20px 40px; }}
+  table {{ width: 100%; border-collapse: collapse; }}
+  th, td {{ text-align: left; padding: 10px 12px; vertical-align: top; border-bottom: 1px solid var(--border); }}
+  thead th {{
+    position: sticky; top: 97px; background: var(--head-bg);
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); z-index: 4;
+  }}
+  tbody tr:nth-child(even) {{ background: var(--row); }}
+  td.num {{ color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; width: 3.5rem; }}
+  td.ts {{
+    color: var(--ts); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem; white-space: nowrap; width: 6.5rem;
+  }}
+  td.en {{ width: 44%; }}
+  td.ko {{ width: 44%; }}
+  mark {{ background: #fde68a; color: #1a1a1a; border-radius: 2px; }}
+  tr.hidden {{ display: none; }}
+  @media (max-width: 640px) {{
+    td.ts {{ display: none; }} thead th.ts {{ display: none; }}
+    td.en, td.ko {{ display: block; width: auto; }}
+    td.en {{ border-bottom: none; padding-bottom: 2px; }}
+    td.en::before {{ content: "EN"; display: block; font-size: 0.65rem; color: var(--muted); }}
+    td.ko::before {{ content: "KO"; display: block; font-size: 0.65rem; color: var(--muted); }}
+  }}
+</style>
+</head>
+<body>
+<header>
+  <h1>번역 비교</h1>
+  <div class="meta">
+    원문 <code>{en_label}</code> · 번역 <code>{ko_label}</code>
+  </div>
+  <div class="controls">
+    <input id="search" type="search" placeholder="원문·번역 검색…" autocomplete="off" spellcheck="false">
+    <span id="count">{count}개 항목</span>
+  </div>
+</header>
+<div class="wrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="num">#</th>
+        <th class="ts">시각</th>
+        <th>English</th>
+        <th>한국어</th>
+      </tr>
+    </thead>
+    <tbody id="rows">
+{rows_html}
+    </tbody>
+  </table>
+</div>
+<script>
+  const total = {count};
+  const search = document.getElementById("search");
+  const countEl = document.getElementById("count");
+  const rows = Array.from(document.querySelectorAll("#rows tr"));
+  const texts = rows.map(r => r.textContent.toLowerCase());
+  function apply() {{
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    rows.forEach((row, i) => {{
+      const hit = !q || texts[i].includes(q);
+      row.classList.toggle("hidden", !hit);
+      if (hit) shown++;
+    }});
+    countEl.textContent = q ? shown + " / " + total + "개" : total + "개 항목";
+  }}
+  search.addEventListener("input", apply);
+</script>
+</body>
+</html>
+"""
+
+
+def cmd_compare(args: argparse.Namespace) -> None:
+    en_path = Path(args.input_vtt)
+    if not en_path.exists():
+        print(f"Error: {en_path} not found", file=sys.stderr)
+        sys.exit(1)
+
+    if args.translated_vtt:
+        ko_path = Path(args.translated_vtt)
+    else:
+        name = en_path.name
+        if name.endswith(".en.vtt"):
+            ko_path = en_path.parent / name.replace(".en.vtt", ".ko.vtt")
+        else:
+            ko_path = en_path.parent / name.replace(".vtt", ".ko.vtt")
+
+    if not ko_path.exists():
+        print(
+            f"Error: {ko_path} not found. Run 'reconstruct' first.", file=sys.stderr
+        )
+        sys.exit(1)
+
+    _, en_cues = parse_vtt(en_path)
+    _, ko_cues = parse_vtt(ko_path)
+
+    if len(en_cues) != len(ko_cues):
+        print(
+            f"Warning: cue count mismatch (en={len(en_cues)}, ko={len(ko_cues)}); "
+            "comparing up to the shorter length",
+            file=sys.stderr,
+        )
+
+    pairs = build_comparison_pairs(en_cues, ko_cues)
+
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        output_path = ko_path.parent / (ko_path.name.replace(".vtt", "") + ".compare.html")
+
+    html_doc = render_comparison_html(en_path.name, ko_path.name, pairs)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(html_doc)
+
+    print(f"Wrote comparison with {len(pairs)} line pairs -> {output_path}")
+
+
 def cmd_cleanup(args: argparse.Namespace) -> None:
     work_dir = Path(args.directory) if args.directory else Path(".")
     patterns = ["batch_*.json", "trans_*.json", "_mapping.json"]
@@ -276,6 +484,24 @@ def main() -> None:
         help="Output VTT path (default: .ko.vtt)",
     )
 
+    p_compare = subparsers.add_parser(
+        "compare", help="Generate side-by-side EN/KO comparison HTML"
+    )
+    p_compare.add_argument("input_vtt", type=str, help="Original English VTT file path")
+    p_compare.add_argument(
+        "translated_vtt",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Translated VTT path (default: .ko.vtt next to input)",
+    )
+    p_compare.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output HTML path (default: <name>.ko.compare.html)",
+    )
+
     p_cleanup = subparsers.add_parser(
         "cleanup", help="Remove temporary batch/translation files"
     )
@@ -293,6 +519,8 @@ def main() -> None:
         cmd_extract(args)
     elif args.command == "reconstruct":
         cmd_reconstruct(args)
+    elif args.command == "compare":
+        cmd_compare(args)
     elif args.command == "cleanup":
         cmd_cleanup(args)
 

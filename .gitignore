@@ -3,3 +3,4 @@
 _mapping.json
 batch_*.json
 trans_*.json
+*.compare.html
