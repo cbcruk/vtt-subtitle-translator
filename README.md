@@ -1,19 +1,34 @@
 # VTT Subtitle Translator
 
 영어 VTT 자막 파일을 한국어로 번역하는 자동화 도구.
-YouTube 자동 생성 자막의 단어별 타이밍 태그를 처리하고, Claude Code를 통해 병렬 번역을 수행합니다.
+YouTube 자동 생성 자막의 단어별 타이밍으로 문장을 재조립해 문장 단위로 번역하고, 번역문을 읽기 좋은 길이의 큐로 다시 나눕니다.
+
+## Pipeline
+
+```
+YouTube VTT ─ parseYoutubeVtt ─▶ Word[] ─ toSentences ─▶ Sentence[] ─▶ 번역(Claude) ─ toCues ─▶ Cue[] ─ toWebVtt ─▶ .ko.vtt
+```
+
+| 단계 | 모듈 | 내용 |
+| --- | --- | --- |
+| 단어 추출 | `src/youtube-vtt.ts` | 롤링 자막에서 줄마다 한 번씩만 읽고 `<00:00:01.230><c>` 태그로 단어 시각 복원 |
+| 문장 재조립 | `src/sentences.ts` | `Intl.Segmenter`로 문장 분리, 너무 긴 문장은 가장 긴 쉼에서 다시 분할 |
+| 큐 재분할 | `src/cues.ts` | 문장 구간 안에서 글자 수 비율로 시간 배분, 겹침 제거, 짧은 큐는 뒤 공백으로 연장 |
+| 직렬화 | `src/webvtt.ts` | 번호 붙은 WebVTT 출력 |
+| 비교 HTML | `src/compare-html.ts` | 문장별 원문/번역 대조 페이지 |
+| 작업 파일 | `src/work-files.ts` | 배치 입출력, 번역 id 일대일 검증 |
+
+큐 단위가 아니라 문장 단위로 번역하므로 원본의 두 줄 롤링 표시는 유지하지 않습니다.
 
 ## Directory Structure
 
 ```
 vtts/
-├── translate-vtt.py                  # 번역 자동화 스크립트
-├── .gitignore                        # 임시 파일 제외
-├── .claude/
-│   ├── settings.local.json           # python3 실행 권한 설정
-│   └── skills/
-│       └── translate-vtt/
-│           └── SKILL.md              # /translate-vtt 슬래시 명령어
+├── src/
+│   ├── cli.ts                        # extract / reconstruct / compare / cleanup
+│   └── *.ts, *.test.ts
+├── .claude/skills/translate-vtt/
+│   └── SKILL.md                      # /translate-vtt 슬래시 명령어
 └── subtitles/
     ├── *.en.vtt                      # 영어 자막 원본
     └── *.ko.vtt                      # 한국어 자막
@@ -21,58 +36,73 @@ vtts/
 
 ## Usage
 
+Node 24 이상이 필요합니다. TypeScript를 빌드 없이 그대로 실행합니다.
+
+```bash
+pnpm install
+```
+
 ### Claude Code 슬래시 명령어
 
 ```
 /translate-vtt subtitles/filename.en.vtt
 ```
 
-이 명령어가 전체 파이프라인(추출 → 번역 → 재구성 → 비교 HTML → 정리)을 자동 실행합니다.
+추출 → 병렬 번역 → 재구성 → 비교 HTML → 정리를 자동 실행합니다.
 
 ### 수동 실행
 
-#### 1. Extract - 텍스트 추출 및 배치 분할
+#### 1. Extract - 문장 추출 및 배치 분할
 
 ```bash
-python3 translate-vtt.py extract "subtitles/video.en.vtt" [--batch-size 200]
+pnpm vtt extract "subtitles/video.en.vtt" [--batch-size 100] [--locale en] [--max-sentence-chars 160]
 ```
 
-VTT를 파싱하여 고유 텍스트를 추출하고 배치 JSON 파일로 분할합니다.
+- 출력: `_sentences.json`, `batch_0.json` ~ `batch_N.json`
+- 기존 작업 파일은 먼저 삭제합니다.
 
-- 출력: `batch_0.json` ~ `batch_N.json`, `_mapping.json`
+#### 2. Translate
 
-#### 2. Reconstruct - 번역 결과로 VTT 재구성
+각 `batch_N.json`의 `entries`에 `translation` 필드를 채워 `trans_N.json`으로 저장합니다. 문장을 합치거나 나누면 안 됩니다.
+
+#### 3. Reconstruct - 번역문으로 VTT 생성
 
 ```bash
-python3 translate-vtt.py reconstruct "subtitles/video.en.vtt" [output.ko.vtt]
+pnpm vtt reconstruct "subtitles/video.en.vtt" [output.vtt] [--language ko]
 ```
 
-번역된 `trans_N.json` 파일들을 병합하여 한국어 VTT를 생성합니다.
-출력 파일명 미지정 시 `.en.vtt` → `.ko.vtt`로 자동 변환.
+출력 파일명 미지정 시 `.en.vtt` → `.ko.vtt`. 번역 id가 문장 id와 일대일로 맞지 않으면 실패합니다.
+CPS(초당 글자 수)와 줄 길이 위반 비율을 함께 출력합니다.
 
-#### 3. Compare - 원문/번역 비교 HTML 생성
+#### 4. Compare - 원문/번역 비교 HTML 생성
 
 ```bash
-python3 translate-vtt.py compare "subtitles/video.en.vtt" [translated.ko.vtt] [--output out.html]
+pnpm vtt compare "subtitles/video.en.vtt" [--output out.html] [--language ko]
 ```
 
-원문(EN)과 번역(KO) VTT를 파싱하여 각 대사를 나란히 보여주는 단일 HTML을 생성합니다.
-YouTube 롤링 자막의 중복은 자동으로 제거되고, 각 대사의 최초 등장 시각이 함께 표시됩니다.
+원문 문장과 번역문을 id 기준으로 나란히 보여주는 단일 HTML을 생성합니다. 각 문장의 시작 시각이 함께 표시됩니다.
+작업 파일(`_sentences.json`, `trans_N.json`)을 읽으므로 cleanup 전에 실행해야 합니다.
 
 - 외부 의존성 없는 자체 완결형 HTML (오프라인 열람 가능)
 - 원문·번역 실시간 검색 필터
 - 라이트/다크 테마 자동 대응, 모바일 반응형
-- 번역 대상 VTT 미지정 시 `.en.vtt` → `.ko.vtt`로 자동 탐색
 - 출력 미지정 시 `<name>.ko.compare.html`로 저장
 
-#### 4. Cleanup - 임시 파일 제거
+#### 5. Cleanup - 작업 파일 제거
 
 ```bash
-python3 translate-vtt.py cleanup [directory]
+pnpm vtt cleanup [directory]
 ```
 
-`batch_*.json`, `trans_*.json`, `_mapping.json`을 삭제합니다.
+`_sentences.json`, `batch_*.json`, `trans_*.json`을 삭제합니다.
 (`.ko.vtt`, `.compare.html` 산출물은 유지됩니다.)
+
+## Development
+
+```bash
+pnpm test
+pnpm typecheck
+```
 
 ## Translation Guidelines
 
@@ -80,5 +110,4 @@ python3 translate-vtt.py cleanup [directory]
 - 기술 용어는 영어 유지: API, GitHub, CLI, JSON, npm, TypeScript, React, VS Code 등
 - 고유명사(인명, 제품명, 회사명)는 영어 유지
 - 숫자/단위는 그대로
-- 큐 타임스탬프는 절대 수정하지 않음
-- 단어별 타이밍 태그(`<00:00:03.040><c>...</c>`)는 제거 후 번역
+- 문장 id는 반드시 보존 (병합·분할 금지)
