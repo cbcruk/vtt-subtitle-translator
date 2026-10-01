@@ -9,8 +9,15 @@ export const DEFAULT_CUE_CONFIG: CueConfig = {
   maxCps: 12,
 }
 
+const LATIN_WORD = /^['"‘“(]?[A-Za-z0-9][\w.\-/']*$/
+const LATIN_START = /^[A-Za-z0-9]/
+
 /**
  * Splits text at word boundaries into parts of roughly equal length.
+ *
+ * Consecutive Latin words such as `Spec Kit` or `Claude Code의` are kept
+ * together, since in Korean text they are almost always one name. A comma or
+ * other punctuation ending a word still allows a break after it.
  *
  * @param parts Desired number of parts; fewer are returned when there are not enough words.
  *
@@ -18,11 +25,11 @@ export const DEFAULT_CUE_CONFIG: CueConfig = {
  * ```ts
  * import { splitBalanced } from './cues.ts'
  *
- * splitBalanced('one two three four', 2) // ['one two', 'three four']
+ * splitBalanced('Spec Kit은 정말 쓰기 쉬워요', 2) // ['Spec Kit은', '정말 쓰기 쉬워요']
  * ```
  */
 export function splitBalanced(text: string, parts: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean)
+  const words = groupLatinRuns(text.split(/\s+/).filter(Boolean))
   const count = Math.min(parts, words.length)
   if (count <= 1) return [words.join(' ')]
 
@@ -97,6 +104,21 @@ export function countViolations(cues: Cue[], config: CueConfig): CueViolations {
   }
 
   return { cps, lineLength }
+}
+
+function groupLatinRuns(tokens: string[]): string[] {
+  const units: string[] = []
+  let previous = ''
+  for (const token of tokens) {
+    const last = units.length - 1
+    if (last >= 0 && LATIN_WORD.test(previous) && LATIN_START.test(token)) {
+      units[last] = `${units[last]} ${token}`
+    } else {
+      units.push(token)
+    }
+    previous = token
+  }
+  return units
 }
 
 function sentenceToCues(sentence: Sentence, config: CueConfig): Cue[] {

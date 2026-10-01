@@ -4,12 +4,24 @@ import { countViolations, DEFAULT_CUE_CONFIG, splitBalanced, toCues } from './cu
 
 describe('splitBalanced', () => {
   test('splits into parts of similar length at word boundaries', () => {
-    assert.deepEqual(splitBalanced('one two three four', 2), ['one two', 'three four'])
-    assert.deepEqual(splitBalanced('a bb ccc dddd eeeee', 3), ['a bb ccc', 'dddd', 'eeeee'])
+    assert.deepEqual(splitBalanced('하나 둘 셋 넷', 2), ['하나 둘', '셋 넷'])
+    assert.deepEqual(splitBalanced('가 나나 다다다 라라라라 마마마마마', 3), ['가 나나 다다다', '라라라라', '마마마마마'])
+  })
+
+  test('keeps consecutive Latin words together but breaks after punctuation', () => {
+    assert.deepEqual(splitBalanced('저는 GitHub의 새 프로젝트인 Spec Kit의 메인테이너예요', 2), [
+      '저는 GitHub의 새 프로젝트인',
+      'Spec Kit의 메인테이너예요',
+    ])
+    assert.deepEqual(splitBalanced("바로 'needs clarification'이 없을 것", 2), [
+      "바로 'needs clarification'이",
+      '없을 것',
+    ])
+    assert.deepEqual(splitBalanced('YouTube, TikTok, Instagram', 3), ['YouTube,', 'TikTok,', 'Instagram'])
   })
 
   test('never returns more parts than words', () => {
-    assert.deepEqual(splitBalanced('only two', 5), ['only', 'two'])
+    assert.deepEqual(splitBalanced('두 단어', 5), ['두', '단어'])
   })
 })
 
