@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { countViolations, DEFAULT_CUE_CONFIG, splitBalanced, toCues } from './cues.ts'
+import { countViolations, cueConfigFor, DEFAULT_CUE_CONFIG, LATIN_CUE_CONFIG, splitBalanced, toCues } from './cues.ts'
 
 describe('splitBalanced', () => {
   test('splits into parts of similar length at word boundaries', () => {
@@ -20,8 +20,20 @@ describe('splitBalanced', () => {
     assert.deepEqual(splitBalanced('YouTube, TikTok, Instagram', 3), ['YouTube,', 'TikTok,', 'Instagram'])
   })
 
+  test('breaks text written only in Latin script at any space', () => {
+    assert.deepEqual(splitBalanced('Spec Kit is easy to use', 2), ['Spec Kit is', 'easy to use'])
+  })
+
   test('never returns more parts than words', () => {
     assert.deepEqual(splitBalanced('두 단어', 5), ['두', '단어'])
+  })
+})
+
+describe('cueConfigFor', () => {
+  test('uses the narrow config for wide scripts and the Latin config otherwise', () => {
+    assert.equal(cueConfigFor('ko'), DEFAULT_CUE_CONFIG)
+    assert.equal(cueConfigFor('ja-JP'), DEFAULT_CUE_CONFIG)
+    assert.equal(cueConfigFor('en-US'), LATIN_CUE_CONFIG)
   })
 })
 

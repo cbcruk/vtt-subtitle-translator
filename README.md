@@ -1,22 +1,27 @@
 # VTT Subtitle Translator
 
-영어 VTT 자막 파일을 한국어로 번역하는 자동화 도구.
-YouTube 자동 생성 자막의 단어별 타이밍으로 문장을 재조립해 문장 단위로 번역하고, 번역문을 읽기 좋은 길이의 큐로 다시 나눕니다.
+영어 자막이나 영상을 한국어 자막으로 번역하는 자동화 도구.
+YouTube 자동 생성 자막 또는 온디바이스 전사(yap)의 단어별 타이밍으로 문장을 재조립해 문장 단위로 번역하고, 번역문을 읽기 좋은 길이의 큐로 다시 나눕니다.
 
 ## Pipeline
 
 ```
-YouTube VTT ─ parseYoutubeVtt ─▶ Word[] ─ toSentences ─▶ Sentence[] ─▶ 번역(Claude) ─ toCues ─▶ Cue[] ─ toWebVtt ─▶ .ko.vtt
+YouTube VTT ──── parseYoutubeVtt ─┐
+                                  ├▶ Word[] ─ toSentences ─▶ Sentence[] ─▶ 번역(Claude) ─ toCues ─▶ Cue[] ─ toWebVtt ─▶ .ko.vtt ─ mux ─▶ .mkv
+영상 ─ yap ─▶ .words.json ─ parseYapJson ─┘
 ```
 
 | 단계 | 모듈 | 내용 |
 | --- | --- | --- |
+| 전사 | `apps/cli/src/media-commands.ts` | yap으로 단어 타임스탬프 전사. 언어를 모르면 앞 60초로 판별(franc), yap이 못 여는 파일은 ffmpeg로 오디오 추출 후 재시도 |
 | 단어 추출 | `packages/subtitle-core/src/youtube-vtt.ts` | 롤링 자막에서 줄마다 한 번씩만 읽고 `<00:00:01.230><c>` 태그로 단어 시각 복원 |
+| 단어 추출 | `packages/subtitle-core/src/yap-json.ts` | yap JSON의 단어에 segment 원문의 문장부호를 다시 붙임 (yap은 단어 토큰에서 문장부호를 뺌) |
 | 문장 재조립 | `packages/subtitle-core/src/sentences.ts` | `Intl.Segmenter`로 문장 분리, 너무 긴 문장은 가장 긴 쉼에서 다시 분할 |
 | 큐 재분할 | `packages/subtitle-core/src/cues.ts` | 문장 구간 안에서 글자 수 비율로 시간 배분, 겹침 제거, 짧은 큐는 뒤 공백으로 연장 |
 | 직렬화 | `packages/subtitle-core/src/webvtt.ts` | 번호 붙은 WebVTT 출력 |
 | 비교 HTML | `apps/cli/src/compare-html.ts` | 문장별 원문/번역 대조 페이지 |
 | 작업 파일 | `apps/cli/src/work-files.ts` | 배치 입출력, 번역 id 일대일 검증 |
+| mux | `apps/cli/src/media.ts` | 자막 트랙을 언어 메타데이터와 함께 mkv에 넣음 (mp4는 WebVTT를 담지 못함) |
 
 큐 단위가 아니라 문장 단위로 번역하므로 원본의 두 줄 롤링 표시는 유지하지 않습니다.
 
@@ -30,7 +35,7 @@ vtts/
 │   ├── subtitle-core/                # @vtts/subtitle-core (private): 파싱·문장·큐·WebVTT
 │   └── vtt-to-json/                  # @cbcruk/vtt-to-json (npm 배포): subtitle-core를 번들
 ├── apps/
-│   └── cli/                          # @vtts/cli (private): extract / reconstruct / compare / cleanup
+│   └── cli/                          # @vtts/cli (private): doctor / transcribe / extract / reconstruct / compare / cleanup / mux
 ├── .changeset/                       # 배포 패키지 버전 관리
 ├── .claude/skills/translate-vtt/
 │   └── SKILL.md                      # /translate-vtt 슬래시 명령어
@@ -42,28 +47,45 @@ vtts/
 ## Usage
 
 Node 24 이상이 필요합니다. TypeScript를 빌드 없이 그대로 실행합니다.
+영상에서 바로 전사하려면 macOS 26 이상과 [yap](https://github.com/finnvoor/yap), ffmpeg가 필요합니다.
 
 ```bash
 pnpm install
+brew install yap ffmpeg   # 영상 입력을 쓸 때만
+pnpm vtt doctor           # 환경 점검
 ```
 
 ### Claude Code 슬래시 명령어
 
 ```
 /translate-vtt subtitles/filename.en.vtt
+/translate-vtt media/talk.mp4
 ```
 
-추출 → 병렬 번역 → 재구성 → 비교 HTML → 정리를 자동 실행합니다.
+(영상이면 전사 →) 추출 → 병렬 번역 → 재구성 → 비교 HTML → 정리 (→ mux)를 자동 실행합니다.
 
 ### 수동 실행
+
+#### 0. Transcribe - 영상 전사 (영상 입력만)
+
+```bash
+pnpm vtt transcribe "media/talk.mp4" [--locale en-US] [--output out.words.json]
+```
+
+- 출력: `talk.words.json` (yap JSON, 단어 타임스탬프 포함)
+- `--locale`이 없으면 앞 60초를 전사해 언어를 판별합니다.
+- 언어별 음성 asset은 처음 쓸 때 내려받으므로 **언어마다 첫 실행은 온라인이어야 합니다.**
+- 이후 단계에는 `.vtt` 대신 이 `.words.json` 경로를 넘깁니다.
 
 #### 1. Extract - 문장 추출 및 배치 분할
 
 ```bash
 pnpm vtt extract "subtitles/video.en.vtt" [--batch-size 100] [--locale en] [--max-sentence-chars 160]
+pnpm vtt extract "media/talk.words.json"
 ```
 
 - 출력: `_sentences.json`, `batch_0.json` ~ `batch_N.json`
+- `.words.json` 입력이면 원문 자막(`talk.en.vtt`)도 함께 씁니다. 로케일은 transcript의 값을 씁니다.
 - 기존 작업 파일은 먼저 삭제합니다.
 
 #### 2. Translate
@@ -100,7 +122,18 @@ pnpm vtt cleanup [directory]
 ```
 
 `_sentences.json`, `batch_*.json`, `trans_*.json`을 삭제합니다.
-(`.ko.vtt`, `.compare.html` 산출물은 유지됩니다.)
+(`.ko.vtt`, `.compare.html`, `.words.json`은 유지됩니다.)
+
+#### 6. Mux - 영상에 자막 트랙 넣기
+
+```bash
+pnpm vtt mux "media/talk.mp4" "media/talk.ko.vtt" "media/talk.en.vtt" [--output out.mkv]
+```
+
+- 출력: `talk.subtitled.mkv`. 영상·오디오는 재인코딩 없이 복사합니다.
+- 트랙 언어는 파일명(`.ko.vtt` → `kor`)에서 가져오고, 첫 자막이 기본 트랙이 됩니다.
+- mp4는 `mov_text` 자막만 담을 수 있어 mkv로 출력합니다. mp4를 유지하려면 `.vtt`를 사이드카로 두세요.
+- 출력 파일이 이미 있으면 덮어쓰지 않고 실패합니다.
 
 ## Development
 

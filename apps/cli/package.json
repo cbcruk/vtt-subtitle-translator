@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@vtts/subtitle-core": "workspace:*"
+    "@vtts/subtitle-core": "workspace:*",
+    "franc-min": "^6.2.0"
   }
 }

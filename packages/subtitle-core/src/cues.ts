@@ -9,15 +9,39 @@ export const DEFAULT_CUE_CONFIG: CueConfig = {
   maxCps: 12,
 }
 
+/** Readability defaults for languages written in Latin script. */
+export const LATIN_CUE_CONFIG: CueConfig = {
+  maxCharsPerLine: 42,
+  maxLines: 2,
+  minDuration: 1,
+  maxDuration: 7,
+  maxCps: 17,
+}
+
+const WIDE_SCRIPT_LANGUAGES = new Set(['ko', 'ja', 'zh'])
+
+/**
+ * Picks readability defaults for a subtitle language.
+ *
+ * @param language BCP 47 tag such as `ko` or `en-US`; only the primary subtag is used.
+ * @returns {@linkcode DEFAULT_CUE_CONFIG} for Korean, Japanese, and Chinese, otherwise {@linkcode LATIN_CUE_CONFIG}.
+ */
+export function cueConfigFor(language: string): CueConfig {
+  const primary = language.split('-')[0]?.toLowerCase() ?? ''
+  return WIDE_SCRIPT_LANGUAGES.has(primary) ? DEFAULT_CUE_CONFIG : LATIN_CUE_CONFIG
+}
+
+const NON_LATIN_LETTER = /(?!\p{Script=Latin})\p{L}/u
 const LATIN_WORD = /^['"‘“(]?[A-Za-z0-9][\w.\-/']*$/
 const LATIN_START = /^[A-Za-z0-9]/
 
 /**
  * Splits text at word boundaries into parts of roughly equal length.
  *
- * Consecutive Latin words such as `Spec Kit` or `Claude Code의` are kept
- * together, since in Korean text they are almost always one name. A comma or
- * other punctuation ending a word still allows a break after it.
+ * In text that mixes in a non-Latin script, consecutive Latin words such as
+ * `Spec Kit` or `Claude Code의` are kept together, since there they are almost
+ * always one name. A comma or other punctuation ending a word still allows a
+ * break after it. Text written entirely in Latin script breaks at any space.
  *
  * @param parts Desired number of parts; fewer are returned when there are not enough words.
  *
@@ -29,7 +53,8 @@ const LATIN_START = /^[A-Za-z0-9]/
  * ```
  */
 export function splitBalanced(text: string, parts: number): string[] {
-  const words = groupLatinRuns(text.split(/\s+/).filter(Boolean))
+  const tokens = text.split(/\s+/).filter(Boolean)
+  const words = NON_LATIN_LETTER.test(text) ? groupLatinRuns(tokens) : tokens
   const count = Math.min(parts, words.length)
   if (count <= 1) return [words.join(' ')]
 

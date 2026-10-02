@@ -6,3 +6,4 @@ batch_*.json
 trans_*.json
 *.compare.html
 dist
+*.subtitled.mkv

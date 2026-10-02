@@ -57,3 +57,10 @@ export type CueViolations = {
   /** Cues with a line longer than `maxCharsPerLine`. */
   lineLength: number
 }
+
+/** Timed words read from a transcript, with the locale it was recorded in when known. */
+export type TranscriptWords = {
+  words: Word[]
+  /** BCP 47 locale, e.g. `en-US`. */
+  locale?: string
+}
