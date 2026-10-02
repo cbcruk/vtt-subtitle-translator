@@ -6,12 +6,16 @@
     "node": ">=24"
   },
   "scripts": {
-    "vtt": "node src/cli.ts",
-    "test": "node --test \"src/**/*.test.ts\"",
-    "typecheck": "tsc"
+    "vtt": "node apps/cli/src/cli.ts",
+    "test": "node --test \"packages/*/src/**/*.test.ts\" \"apps/*/src/**/*.test.ts\"",
+    "typecheck": "tsc",
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "changeset": "changeset"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
     "@types/node": "^24.19.0",
+    "tsdown": "^0.23.0",
     "typescript": "^7.0.2"
   }
 }

@@ -15,7 +15,7 @@ const CLAUSE_BONUS = 0.5
  *
  * @example
  * ```ts
- * import { toSentences } from './sentences.ts'
+ * import { toSentences } from '@vtts/subtitle-core'
  *
  * toSentences(words, { locale: 'en', maxChars: 160 })
  * // [{ id: 0, text: 'Hey friends, I am Dan.', start: 0.08, end: 1.68 }, ...]

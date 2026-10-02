@@ -5,3 +5,4 @@ _sentences.json
 batch_*.json
 trans_*.json
 *.compare.html
+dist

@@ -1,0 +1,10 @@
+{
+  "name": "@vtts/cli",
+  "description": "Sentence-level VTT translation pipeline driven by Claude Code",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vtts/subtitle-core": "workspace:*"
+  }
+}

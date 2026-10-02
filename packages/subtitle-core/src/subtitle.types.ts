@@ -5,6 +5,14 @@ export type Word = {
   end: number
 }
 
+/** A cue as read from a WebVTT file, before any text cleanup. */
+export type SourceCue = {
+  start: number
+  end: number
+  /** Non-blank lines this cue adds, still containing tags and entities. */
+  lines: string[]
+}
+
 /** A translation unit reassembled from consecutive words. */
 export type Sentence = {
   /** Stable index that must survive translation unchanged. */
@@ -48,9 +56,4 @@ export type CueViolations = {
   cps: number
   /** Cues with a line longer than `maxCharsPerLine`. */
   lineLength: number
-}
-
-/** A source {@linkcode Sentence} together with its translation. */
-export type SentencePair = Sentence & {
-  translation: string
 }

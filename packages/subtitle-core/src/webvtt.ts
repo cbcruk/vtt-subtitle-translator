@@ -24,7 +24,7 @@ export function formatTimestamp(seconds: number): string {
  *
  * @example
  * ```ts
- * import { toWebVtt } from './webvtt.ts'
+ * import { toWebVtt } from '@vtts/subtitle-core'
  *
  * toWebVtt([{ start: 0, end: 1.5, lines: ['안녕하세요'] }], 'ko')
  * // 'WEBVTT\nKind: captions\nLanguage: ko\n\n1\n00:00:00.000 --> 00:00:01.500\n안녕하세요\n'

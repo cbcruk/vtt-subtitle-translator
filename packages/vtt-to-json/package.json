@@ -1,0 +1,33 @@
+{
+  "name": "@cbcruk/vtt-to-json",
+  "description": "WebVTT 자막을 중복 제거된 cue 배열로 파싱",
+  "version": "0.0.2",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cbcruk/vtt-subtitle-translator.git",
+    "directory": "packages/vtt-to-json"
+  },
+  "homepage": "https://github.com/cbcruk/vtt-subtitle-translator/tree/main/packages/vtt-to-json#readme",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "@vtts/subtitle-core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": "./dist/index.js",
+      "./package.json": "./package.json"
+    }
+  }
+}

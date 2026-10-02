@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { parseTimestamp, parseYoutubeVtt } from './youtube-vtt.ts'
+import { cueLineText, parseCaptionCues, parseTimestamp, parseYoutubeVtt } from './youtube-vtt.ts'
 
 const ROLLING = `WEBVTT
 Kind: captions
@@ -31,6 +31,19 @@ describe('parseTimestamp', () => {
   test('parses timestamps with and without hours', () => {
     assert.equal(parseTimestamp('01:02:03.250'), 3723.25)
     assert.equal(parseTimestamp('00:01.500'), 1.5)
+  })
+})
+
+describe('parseCaptionCues', () => {
+  test('keeps only the line each rolling cue adds and skips transition cues', () => {
+    assert.deepEqual(
+      parseCaptionCues(ROLLING).map((cue) => [cue.start, cueLineText(cue.lines.join(' '))]),
+      [
+        [0.08, "Hey friends, I'm"],
+        [2.879, 'Dan.'],
+        [5.04, 'A > B'],
+      ],
+    )
   })
 })
 

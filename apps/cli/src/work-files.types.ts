@@ -1,4 +1,9 @@
-import type { Sentence } from './subtitle.types.ts'
+import type { Sentence } from '@vtts/subtitle-core'
+
+/** A source {@linkcode Sentence} together with its translation. */
+export type SentencePair = Sentence & {
+  translation: string
+}
 
 /** Contents of `_sentences.json`: the full transcript that `reconstruct` maps translations back onto. */
 export type SentencesFile = {

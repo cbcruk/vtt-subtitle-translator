@@ -11,22 +11,27 @@ YouTube VTT ─ parseYoutubeVtt ─▶ Word[] ─ toSentences ─▶ Sentence[] 
 
 | 단계 | 모듈 | 내용 |
 | --- | --- | --- |
-| 단어 추출 | `src/youtube-vtt.ts` | 롤링 자막에서 줄마다 한 번씩만 읽고 `<00:00:01.230><c>` 태그로 단어 시각 복원 |
-| 문장 재조립 | `src/sentences.ts` | `Intl.Segmenter`로 문장 분리, 너무 긴 문장은 가장 긴 쉼에서 다시 분할 |
-| 큐 재분할 | `src/cues.ts` | 문장 구간 안에서 글자 수 비율로 시간 배분, 겹침 제거, 짧은 큐는 뒤 공백으로 연장 |
-| 직렬화 | `src/webvtt.ts` | 번호 붙은 WebVTT 출력 |
-| 비교 HTML | `src/compare-html.ts` | 문장별 원문/번역 대조 페이지 |
-| 작업 파일 | `src/work-files.ts` | 배치 입출력, 번역 id 일대일 검증 |
+| 단어 추출 | `packages/subtitle-core/src/youtube-vtt.ts` | 롤링 자막에서 줄마다 한 번씩만 읽고 `<00:00:01.230><c>` 태그로 단어 시각 복원 |
+| 문장 재조립 | `packages/subtitle-core/src/sentences.ts` | `Intl.Segmenter`로 문장 분리, 너무 긴 문장은 가장 긴 쉼에서 다시 분할 |
+| 큐 재분할 | `packages/subtitle-core/src/cues.ts` | 문장 구간 안에서 글자 수 비율로 시간 배분, 겹침 제거, 짧은 큐는 뒤 공백으로 연장 |
+| 직렬화 | `packages/subtitle-core/src/webvtt.ts` | 번호 붙은 WebVTT 출력 |
+| 비교 HTML | `apps/cli/src/compare-html.ts` | 문장별 원문/번역 대조 페이지 |
+| 작업 파일 | `apps/cli/src/work-files.ts` | 배치 입출력, 번역 id 일대일 검증 |
 
 큐 단위가 아니라 문장 단위로 번역하므로 원본의 두 줄 롤링 표시는 유지하지 않습니다.
 
 ## Directory Structure
 
+pnpm 워크스페이스 모노레포입니다.
+
 ```
 vtts/
-├── src/
-│   ├── cli.ts                        # extract / reconstruct / compare / cleanup
-│   └── *.ts, *.test.ts
+├── packages/
+│   ├── subtitle-core/                # @vtts/subtitle-core (private): 파싱·문장·큐·WebVTT
+│   └── vtt-to-json/                  # @cbcruk/vtt-to-json (npm 배포): subtitle-core를 번들
+├── apps/
+│   └── cli/                          # @vtts/cli (private): extract / reconstruct / compare / cleanup
+├── .changeset/                       # 배포 패키지 버전 관리
 ├── .claude/skills/translate-vtt/
 │   └── SKILL.md                      # /translate-vtt 슬래시 명령어
 └── subtitles/
@@ -100,8 +105,20 @@ pnpm vtt cleanup [directory]
 ## Development
 
 ```bash
-pnpm test
+pnpm test        # 모든 패키지의 node:test
 pnpm typecheck
+pnpm build       # 배포 패키지 빌드 (tsdown)
+```
+
+### Release
+
+`@cbcruk/vtt-to-json`만 npm에 배포합니다. `subtitle-core`는 private이며 빌드할 때 vtt-to-json 안에 번들됩니다.
+
+```bash
+pnpm changeset             # 변경 기록 추가
+pnpm changeset version     # 버전·CHANGELOG 반영
+pnpm build
+pnpm changeset publish
 ```
 
 ## Translation Guidelines

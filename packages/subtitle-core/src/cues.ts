@@ -23,7 +23,7 @@ const LATIN_START = /^[A-Za-z0-9]/
  *
  * @example
  * ```ts
- * import { splitBalanced } from './cues.ts'
+ * import { splitBalanced } from '@vtts/subtitle-core'
  *
  * splitBalanced('Spec Kit은 정말 쓰기 쉬워요', 2) // ['Spec Kit은', '정말 쓰기 쉬워요']
  * ```
@@ -72,7 +72,7 @@ export function splitBalanced(text: string, parts: number): string[] {
  *
  * @example
  * ```ts
- * import { DEFAULT_CUE_CONFIG, toCues } from './cues.ts'
+ * import { DEFAULT_CUE_CONFIG, toCues } from '@vtts/subtitle-core'
  *
  * toCues([{ id: 0, text: '안녕하세요 여러분', start: 0, end: 2 }], DEFAULT_CUE_CONFIG)
  * // [{ start: 0, end: 2, lines: ['안녕하세요 여러분'] }]

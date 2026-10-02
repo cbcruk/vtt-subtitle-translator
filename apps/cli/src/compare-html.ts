@@ -1,5 +1,5 @@
-import type { SentencePair } from './subtitle.types.ts'
-import { formatTimestamp } from './webvtt.ts'
+import { formatTimestamp } from '@vtts/subtitle-core'
+import type { SentencePair } from './work-files.types.ts'
 
 const HTML_ESCAPES: Record<string, string> = {
   '&': '&amp;',

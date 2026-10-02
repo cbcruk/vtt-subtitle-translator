@@ -1,7 +1,7 @@
 import { readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Sentence, SentencePair } from './subtitle.types.ts'
-import type { BatchFile, SentencesFile, TranslatedEntry } from './work-files.types.ts'
+import type { Sentence } from '@vtts/subtitle-core'
+import type { BatchFile, SentencePair, SentencesFile, TranslatedEntry } from './work-files.types.ts'
 
 const SENTENCES_FILE = '_sentences.json'
 const WORK_FILE = /^(?:batch_\d+\.json|trans_\d+\.json|_sentences\.json)$/

@@ -1,12 +1,16 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
+import {
+  countViolations,
+  DEFAULT_CUE_CONFIG,
+  parseYoutubeVtt,
+  toCues,
+  toSentences,
+  toWebVtt,
+} from '@vtts/subtitle-core'
 import { renderComparisonHtml } from './compare-html.ts'
-import { countViolations, DEFAULT_CUE_CONFIG, toCues } from './cues.ts'
-import { toSentences } from './sentences.ts'
-import { toWebVtt } from './webvtt.ts'
 import { readSentencePairs, removeWorkFiles, writeWorkFiles } from './work-files.ts'
-import { parseYoutubeVtt } from './youtube-vtt.ts'
 
 const USAGE = `Usage:
   pnpm vtt extract <input.en.vtt> [--batch-size 100] [--locale en] [--max-sentence-chars 160]
