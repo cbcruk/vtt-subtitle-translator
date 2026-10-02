@@ -1,7 +1,7 @@
 {
   "name": "@cbcruk/vtt-to-json",
   "description": "WebVTT 자막을 중복 제거된 cue 배열로 파싱",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "repository": {
